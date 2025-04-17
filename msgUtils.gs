@@ -1,8 +1,7 @@
 /**
  * MessagingUtils Library
  * 
- * A Google Apps Script library for unified message handling across different platforms.
- * Currently supports email, with framework for future expansion to other messaging platforms.
+ * A Google Apps Script library for email message handling.
  * 
  * @version 1.0.0
  */
@@ -166,14 +165,6 @@ var MsgUtils = (function() {
 	};
   }
   
-  // Slack messaging functionality (placeholder for future implementation)
-  const slackUtils = {
-	// Future Slack integration methods will go here
-	isConfigured: function() {
-	  return false; // Not implemented yet
-	}
-  };
-  
   // Return the public API
   return {
 	// Configuration
@@ -186,10 +177,7 @@ var MsgUtils = (function() {
 	createTextTemplate: createTextTemplate,
 	
 	// Debugging
-	debug: debug,
-	
-	// Future platform support (placeholders)
-	slack: slackUtils
+	debug: debug
   };
 })();
 
@@ -220,5 +208,3 @@ function testLibrary() {
 function sendQuickEmail(recipient, subject, body) {
   return MsgUtils.sendEmail(recipient, subject, body);
 }
-
-sendQuickEmail('jladicos@acuityinsights.com', 'Hello there', 'This email was sent by an automation');

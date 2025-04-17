@@ -1,22 +1,28 @@
-# MessagingUtils Library
+# Messaging Utils Library
 
-A Google Apps Script library for unified message handling across different platforms. The library provides a consistent, flexible API for sending notifications via email (with a framework for future expansion to other messaging platforms like Slack).
+A Google Apps Script library for unified message handling across different platforms. The library provides a consistent, flexible API for sending notifications via email and Slack.
 
 ## Features
 
-- **Unified API**: Common interface for sending messages across different platforms
+### Email (MsgUtils)
+- **Flexible Email API**: Simple interface for sending emails with various options
 - **Templating System**: Built-in support for template-based messages with variable substitution
 - **Configuration Options**: Adjustable settings for default behaviors
-- **Namespaced Design**: Uses the `MsgUtils` namespace to avoid conflicts
 - **Debug Mode**: Optional logging for troubleshooting
-- **Extensible Design**: Framework for adding support for additional messaging platforms
+
+### Slack (SlackUtils)
+- **Channel & Direct Messages**: Send messages to channels or directly to users
+- **Message Threading**: Create and track conversation threads
+- **Message Links**: Get links to posted messages (when using API token)
+- **Rich Formatting**: Support for attachments and block formatting
+- **Template Support**: Create reusable message templates with variables
 
 ## Installation
 
 ### As a Library
 
 1. Create a new Google Apps Script project at [script.google.com](https://script.google.com)
-2. Add the library code to the project
+2. Add the library code to the project (MsgUtils.gs, SlackUtils.gs, SlackConfig.gs)
 3. Deploy the project as a library:
    - Click on "Project Settings" (⚙️ icon)
    - Under "Script ID", copy the ID for future reference
@@ -32,10 +38,10 @@ A Google Apps Script library for unified message handling across different platf
 2. Click on "Libraries" (+ icon in the sidebar)
 3. Paste the Script ID from the library project
 4. Choose the version you deployed
-5. Set "MsgUtils" as the Identifier
+5. Set an identifier (e.g., "MessagingUtils")
 6. Click "Add"
 
-## Basic Usage
+## Email Usage (MsgUtils)
 
 ### Configuration
 
@@ -68,7 +74,7 @@ MsgUtils.sendEmail(
 );
 ```
 
-### Using Templates
+### Using Email Templates
 
 ```javascript
 // Create a template with variables
@@ -99,56 +105,167 @@ MsgUtils.sendTemplatedEmail(
 );
 ```
 
-## Advanced Usage
+## Slack Usage (SlackUtils)
 
-### Creating Project-Specific Templates
+### Configuration
+
+First, set up your Slack configuration:
 
 ```javascript
-// Create a module for your project templates
-var ProjectTemplates = (function() {
-  // Define templates
-  const NOTIFICATION_TEMPLATE = 'Project {{projectName}} status: {{status}}';
+// Initialize with API token (recommended for full functionality)
+SlackConfig.initialize({
+  apiToken: 'xoxb-your-bot-token-here', // Replace with your actual token
+  defaultChannel: '#general',
+  defaultUsername: 'GAS Bot',
+  defaultIconEmoji: ':robot_face:',
+  debugMode: true
+});
+
+// Alternatively, initialize with webhook URL (simpler but limited functionality)
+SlackConfig.initialize({
+  webhookUrl: 'https://hooks.slack.com/services/YOUR/WEBHOOK/URL',
+  defaultChannel: '#general',
+  defaultUsername: 'GAS Bot',
+  debugMode: true
+});
+```
+
+### Sending Slack Messages
+
+```javascript
+// Send a message to a channel
+SlackUtils.sendMessage('#announcements', 'Hello team!');
+
+// Send a direct message to a user
+SlackUtils.sendDirectMessage('username', 'Hello, this is a private message');
+
+// Send a message with attachments
+const attachments = [
+  {
+	color: '#36a64f',
+	title: 'Project Update',
+	text: 'Project is on track',
+	fields: [
+	  {
+		title: 'Status',
+		value: 'Green',
+		short: true
+	  }
+	]
+  }
+];
+
+SlackUtils.sendMessage('#project', 'Update', { attachments: attachments });
+```
+
+### Getting Message Links
+
+When using the API token method, you can retrieve links to posted messages:
+
+```javascript
+const result = SlackUtils.sendMessage('#channel', 'Hello world');
+
+if (result.success && result.messageInfo && result.messageInfo.messageLink) {
+  const messageLink = result.messageInfo.messageLink;
+  Logger.log('Message link: ' + messageLink);
   
-  // Create helper functions
-  function sendStatusNotification(recipient, projectName, status) {
-	return MsgUtils.sendTemplatedEmail(
-	  recipient,
-	  'Project Status Update',
-	  NOTIFICATION_TEMPLATE,
-	  { projectName: projectName, status: status }
+  // You can now use this link in other messages or store it
+}
+```
+
+### Creating Message Threads
+
+You can reply to messages to create threaded conversations:
+
+```javascript
+// First, send a message and store its info
+const result = SlackUtils.sendMessage('#project', 'Starting a new thread');
+
+if (result.success) {
+  // Then reply to create a thread
+  SlackUtils.replyToMessage(
+	result.messageInfo.channelId,
+	result.messageInfo.timestamp,
+	'This is a threaded reply'
+  );
+}
+```
+
+### Using Slack Templates
+
+```javascript
+// Create a template
+const notificationTemplate = SlackUtils.createSlackTemplate(
+  'Project {{projectName}} status: {{status}}.\n{{#if details}}Details: {{details}}{{/if}}'
+);
+
+// Use the template
+notificationTemplate.send(
+  '#project-updates',
+  {
+	projectName: 'Website Redesign',
+	status: 'completed',
+	details: 'Launch scheduled for next Monday'
+  }
+);
+```
+
+## Advanced Usage
+
+### Combining Email and Slack Notifications
+
+```javascript
+function notifyProjectUpdate(projectName, status, details) {
+  // Email the project team
+  MsgUtils.sendEmail(
+	'team@example.com',
+	`Project Update: ${projectName}`,
+	`The project ${projectName} is now ${status}. ${details}`
+  );
+  
+  // Post in Slack channel
+  SlackUtils.sendMessage(
+	'#project-updates',
+	`*Project Update:* ${projectName} is now ${status}. ${details}`
+  );
+}
+```
+
+### Creating Project-Specific Wrappers
+
+```javascript
+// Create a custom notification module
+var ProjectNotifications = (function() {
+  function initialize() {
+	MsgUtils.setConfig({
+	  defaultSubjectPrefix: '[Project] ',
+	  useHtmlByDefault: false
+	});
+	
+	SlackConfig.initialize({
+	  apiToken: 'your-token-here',
+	  defaultChannel: '#project-team'
+	});
+  }
+  
+  function notifyMilestone(milestoneName, completion) {
+	// Email notification
+	MsgUtils.sendEmail(
+	  'stakeholders@example.com',
+	  `Milestone Reached: ${milestoneName}`,
+	  `We've reached the ${milestoneName} milestone (${completion}% complete).`
+	);
+	
+	// Slack notification
+	SlackUtils.sendMessage(
+	  '#project-updates',
+	  `:tada: *Milestone Reached*: ${milestoneName} (${completion}% complete)`
 	);
   }
   
-  // Return public API
   return {
-	sendStatusNotification: sendStatusNotification
-  };
-})();
-```
-
-### Auto-Initialization Wrapper
-
-```javascript
-// Create a wrapper with auto-initialization
-const ProjectMessaging = (function() {
-  let initialized = false;
-  
-  function ensureInitialized() {
-	if (!initialized) {
-	  MsgUtils.setConfig({
-		defaultSubjectPrefix: '[Project] ',
-		useHtmlByDefault: false
-	  });
-	  initialized = true;
-	}
-  }
-  
-  return {
-	sendEmail: function(recipient, subject, body, options) {
-	  ensureInitialized();
-	  return MsgUtils.sendEmail(recipient, subject, body, options);
-	}
-	// Add more wrapped functions as needed
+	initialize: initialize,
+	notifyMilestone: notifyMilestone
   };
 })();
 ```
@@ -158,49 +275,47 @@ const ProjectMessaging = (function() {
 Enable debug mode to see detailed logs:
 
 ```javascript
+// For email debugging
 MsgUtils.setConfig({ debugMode: true });
-MsgUtils.debug('Testing debug message', { someData: 'value' });
+
+// For Slack debugging
+SlackConfig.initialize({ debugMode: true });
 ```
 
-## Extending with New Platforms
+## API Reference
 
-The library is designed to be extended with additional messaging platforms. 
-Future versions may include support for Slack, Microsoft Teams, or other platforms.
+### MsgUtils (Email)
 
-## Function Reference
-
-### Configuration
-
-- `setConfig(config)` - Set global configuration options
+- `setConfig(config)` - Set global configuration
 - `getConfig()` - Get current configuration
-
-### Email
-
 - `sendEmail(recipient, subject, body, options)` - Send an email
 - `sendTemplatedEmail(recipient, subject, templateText, templateData, options)` - Send a templated email
-- `createTextTemplate(templateText)` - Create a reusable template
+- `createTextTemplate(templateText)` - Create a reusable email template
+- `debug(message, data)` - Log a debug message
 
-### Debugging
+### SlackUtils (Slack)
 
-- `debug(message, data)` - Log a debug message if debug mode is enabled
+- `sendMessage(channelOrUserId, message, options)` - Send a Slack message
+- `sendDirectMessage(userId, message, options)` - Send a direct message
+- `replyToMessage(channelId, timestamp, message, options)` - Reply to a message
+- `sendTemplatedMessage(channelOrUserId, templateText, templateData, options)` - Send a templated message
+- `createSlackTemplate(templateText)` - Create a reusable Slack template
+
+### SlackConfig
+
+- `initialize(config)` - Initialize Slack configuration
+- `getConfig()` - Get current Slack configuration
+- `isConfigured()` - Check if Slack is properly configured
+- `debug(message, data)` - Log a debug message
 
 ## Best Practices
 
-1. **Group related templates**: Keep project-specific templates together in their own module
-2. **Use auto-initialization**: Create wrappers that handle initialization automatically
-3. **Keep templates simple**: Use the simplest template syntax that meets your needs
-4. **Prefer text templates**: Use plain text for system notifications, reserve HTML for formatted newsletters
-5. **Test thoroughly**: Use the test functions to verify templates and configuration
-6. **Handle errors**: Check the return values from send functions to handle errors gracefully
-
-## Examples
-
-See the `ExampleTemplates.gs` file for complete examples of:
-- Plain text notifications
-- Formatted reports
-- HTML announcements
-- Advanced templating techniques
+1. **Initialize early**: Set up your configuration at the start of your script
+2. **Error handling**: Always check the `success` property in the result objects
+3. **Template organization**: Group related templates together in their own modules
+4. **Message links**: Store message links for important notifications that might need follow-ups
+5. **Appropriate channel**: Use direct messages for personal notifications, channels for team updates
 
 ## License
 
-This library is available under the MIT License.
+This library is available under the MIT Lic
